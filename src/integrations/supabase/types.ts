@@ -14,7 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      parking_reservations: {
+        Row: {
+          created_at: string
+          id: string
+          space: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          space: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          space?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
