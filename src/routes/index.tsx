@@ -13,6 +13,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+
+type Space = { space: number; occupied: boolean; name: string | null };
+
+const NAME_KEY = "parking:name";
 
 const TOTAL = 6;
 
@@ -38,7 +44,8 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-  const [available, setAvailable] = useState<number[] | null>(null);
+  const [spaces, setSpaces] = useState<Space[] | null>(null);
+  const [name, setName] = useState("");
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
@@ -47,13 +54,17 @@ function Index() {
     if (showSpinner) setLoading(true);
     try {
       const res = await fetch("/api/parking", { headers: { Accept: "application/json" } });
-      const data = (await res.json()) as { available?: number[] };
-      setAvailable(data.available ?? []);
+      const data = (await res.json()) as { spaces?: Space[] };
+      setSpaces(data.spaces ?? []);
     } catch {
       toast.error("Could not load parking spaces.");
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    setName(localStorage.getItem(NAME_KEY) ?? "");
   }, []);
 
   useEffect(() => {
@@ -69,15 +80,16 @@ function Index() {
       const res = await fetch("/api/parking", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ space: pending }),
+        body: JSON.stringify({ space: pending, name: name.trim() }),
       });
       const data = (await res.json()) as { success: boolean; message?: string };
       if (data.success) {
+        localStorage.setItem(NAME_KEY, name.trim());
         toast.success("Parking space successfully registered.", {
           description: `Space ${pending} is now yours for today.`,
         });
       } else {
-        toast.error("This parking space has already been taken.", {
+        toast.error(data.message ?? "This parking space has already been taken.", {
           description: "Please choose another parking space.",
         });
       }
@@ -105,11 +117,28 @@ function Index() {
           </p>
         </header>
 
-        <div className="mt-7 flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3">
+        <div className="mt-6 space-y-2">
+          <Label htmlFor="name" className="text-sm font-medium text-foreground">
+            Your name
+          </Label>
+          <Input
+            id="name"
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value);
+              localStorage.setItem(NAME_KEY, e.target.value);
+            }}
+            placeholder="e.g. Dana Levi"
+            maxLength={40}
+            className="h-12 rounded-xl text-base"
+          />
+        </div>
+
+        <div className="mt-5 flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3">
           <span className="text-sm font-medium text-muted-foreground">
             Available:{" "}
             <span className="text-base font-bold text-primary-strong">
-              {available?.length ?? "—"} / {TOTAL}
+              {spaces ? spaces.filter((s) => !s.occupied).length : "—"} / {TOTAL}
             </span>
           </span>
           <Button
@@ -128,24 +157,40 @@ function Index() {
             <Loader2 className="size-8 animate-spin text-primary" />
             <p className="text-sm">Loading parking spaces…</p>
           </div>
-        ) : available && available.length > 0 ? (
-          <div className="mt-5 grid grid-cols-2 gap-4">
-            {available.map((space) => (
-              <button
-                key={space}
-                onClick={() => setPending(space)}
-                className="rounded-2xl border-2 border-primary/25 bg-primary-soft py-9 text-4xl font-bold tracking-tight text-primary-strong shadow-sm transition-all active:scale-95 hover:border-primary hover:shadow-md"
-              >
-                {space}
-              </button>
-            ))}
-          </div>
         ) : (
-          <div className="mt-8 rounded-2xl border border-dashed border-border py-16 text-center">
-            <p className="text-base font-semibold text-foreground">All spaces are taken</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Everything frees up again at 20:00.
-            </p>
+          <div className="mt-5 grid grid-cols-2 gap-4">
+            {(spaces ?? []).map((s) =>
+              s.occupied ? (
+                <div
+                  key={s.space}
+                  className="flex flex-col items-center justify-center rounded-2xl border-2 border-border bg-muted py-8 opacity-80"
+                >
+                  <span className="text-4xl font-bold tracking-tight text-muted-foreground line-through">
+                    {s.space}
+                  </span>
+                  <span className="mt-1 max-w-[90%] truncate text-sm font-medium text-muted-foreground">
+                    {s.name || "Occupied"}
+                  </span>
+                </div>
+              ) : (
+                <button
+                  key={s.space}
+                  onClick={() => {
+                    if (!name.trim()) {
+                      toast.error("Please enter your name first.");
+                      return;
+                    }
+                    setPending(s.space);
+                  }}
+                  className="flex flex-col items-center justify-center rounded-2xl border-2 border-primary/25 bg-primary-soft py-8 shadow-sm transition-all active:scale-95 hover:border-primary hover:shadow-md"
+                >
+                  <span className="text-4xl font-bold tracking-tight text-primary-strong">
+                    {s.space}
+                  </span>
+                  <span className="mt-1 text-sm font-medium text-primary-strong/70">Available</span>
+                </button>
+              ),
+            )}
           </div>
         )}
       </div>

@@ -1,0 +1,1 @@
+ALTER TABLE public.parking_reservations ADD COLUMN IF NOT EXISTS name TEXT NOT NULL DEFAULT '';

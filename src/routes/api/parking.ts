@@ -32,10 +32,17 @@ export const Route = createFileRoute("/api/parking")({
     handlers: {
       GET: async () => {
         const supabase = getClient();
-        const { data, error } = await supabase.from("parking_reservations").select("space");
+        const { data, error } = await supabase.from("parking_reservations").select("space, name");
         if (error) return json({ error: error.message }, 500);
-        const occupied = new Set((data ?? []).map((r) => r.space));
-        return json({ available: ALL_SPACES.filter((s) => !occupied.has(s)) });
+        const occupied = new Map((data ?? []).map((r) => [r.space, r.name ?? ""]));
+        return json({
+          available: ALL_SPACES.filter((s) => !occupied.has(s)),
+          spaces: ALL_SPACES.map((s) => ({
+            space: s,
+            occupied: occupied.has(s),
+            name: occupied.get(s) ?? null,
+          })),
+        });
       },
       POST: async ({ request }) => {
         let body: unknown;
@@ -49,10 +56,15 @@ export const Route = createFileRoute("/api/parking")({
           return json({ success: false, message: "Invalid parking space." }, 400);
         }
 
+        const name = String((body as { name?: unknown })?.name ?? "").trim().slice(0, 40);
+        if (!name) {
+          return json({ success: false, message: "Name is required." }, 400);
+        }
+
         const supabase = getClient();
         // The unique constraint on `space` makes this atomic: only the first
         // concurrent insert succeeds, the rest fail with code 23505.
-        const { error } = await supabase.from("parking_reservations").insert({ space });
+        const { error } = await supabase.from("parking_reservations").insert({ space, name });
         if (error) {
           if (error.code === "23505") {
             return json({ success: false, message: "Parking space already occupied." }, 409);
