@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, RefreshCw, CircleParking } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -16,9 +16,24 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-type Space = { space: number; occupied: boolean; name: string | null };
+type Space = {
+  space: number;
+  occupied: boolean;
+  name: string | null;
+  mine: boolean;
+};
 
 const NAME_KEY = "parking:name";
+const OWNER_KEY = "parking:ownerKey";
+
+function getOwnerKey() {
+  let key = localStorage.getItem(OWNER_KEY);
+  if (!key) {
+    key = crypto.randomUUID();
+    localStorage.setItem(OWNER_KEY, key);
+  }
+  return key;
+}
 
 const TOTAL = 6;
 
@@ -49,11 +64,15 @@ function Index() {
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
+  const [releasing, setReleasing] = useState<number | null>(null);
+  const ownerKey = useRef("");
 
   const load = useCallback(async (showSpinner = false) => {
     if (showSpinner) setLoading(true);
     try {
-      const res = await fetch("/api/parking", { headers: { Accept: "application/json" } });
+      const res = await fetch(`/api/parking?owner=${encodeURIComponent(ownerKey.current)}`, {
+        headers: { Accept: "application/json" },
+      });
       const data = (await res.json()) as { spaces?: Space[] };
       setSpaces(data.spaces ?? []);
     } catch {
@@ -64,6 +83,7 @@ function Index() {
   }, []);
 
   useEffect(() => {
+    ownerKey.current = getOwnerKey();
     setName(localStorage.getItem(NAME_KEY) ?? "");
   }, []);
 
@@ -80,7 +100,7 @@ function Index() {
       const res = await fetch("/api/parking", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ space: pending, name: name.trim() }),
+        body: JSON.stringify({ space: pending, name: name.trim(), ownerKey: ownerKey.current }),
       });
       const data = (await res.json()) as { success: boolean; message?: string };
       if (data.success) {
@@ -101,6 +121,32 @@ function Index() {
       void load();
     }
   };
+
+  const release = async (space: number) => {
+    setReleasing(space);
+    try {
+      const res = await fetch("/api/parking", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ownerKey: ownerKey.current }),
+      });
+      const data = (await res.json()) as { success: boolean; message?: string };
+      if (data.success) {
+        toast.success(`Space ${space} released.`, {
+          description: "It is now available for everyone.",
+        });
+      } else {
+        toast.error(data.message ?? "Could not release your space.");
+      }
+    } catch {
+      toast.error("Something went wrong. Please try again.");
+    } finally {
+      setReleasing(null);
+      void load();
+    }
+  };
+
+  const mySpace = spaces?.find((s) => s.mine)?.space ?? null;
 
   return (
     <main className="min-h-screen bg-background px-5 py-10">
@@ -160,7 +206,25 @@ function Index() {
         ) : (
           <div className="mt-5 grid grid-cols-2 gap-4">
             {(spaces ?? []).map((s) =>
-              s.occupied ? (
+              s.mine ? (
+                <button
+                  key={s.space}
+                  onClick={() => void release(s.space)}
+                  disabled={releasing === s.space}
+                  className="flex flex-col items-center justify-center rounded-2xl border-2 border-primary bg-primary-soft py-8 shadow-md transition-all active:scale-95 disabled:opacity-60"
+                >
+                  <span className="text-4xl font-bold tracking-tight text-primary-strong">
+                    {s.space}
+                  </span>
+                  <span className="mt-1 flex items-center gap-1 text-sm font-semibold text-primary-strong">
+                    {releasing === s.space ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      "Yours · tap to release"
+                    )}
+                  </span>
+                </button>
+              ) : s.occupied ? (
                 <div
                   key={s.space}
                   className="flex flex-col items-center justify-center rounded-2xl border-2 border-border bg-muted py-8 opacity-80"
@@ -176,13 +240,20 @@ function Index() {
                 <button
                   key={s.space}
                   onClick={() => {
+                    if (mySpace != null) {
+                      toast.error(`You already registered space ${mySpace}.`, {
+                        description: "Tap your space to release it first.",
+                      });
+                      return;
+                    }
                     if (!name.trim()) {
                       toast.error("Please enter your name first.");
                       return;
                     }
                     setPending(s.space);
                   }}
-                  className="flex flex-col items-center justify-center rounded-2xl border-2 border-primary/25 bg-primary-soft py-8 shadow-sm transition-all active:scale-95 hover:border-primary hover:shadow-md"
+                  disabled={mySpace != null}
+                  className="flex flex-col items-center justify-center rounded-2xl border-2 border-primary/25 bg-primary-soft py-8 shadow-sm transition-all active:scale-95 hover:border-primary hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-primary/25 disabled:hover:shadow-sm"
                 >
                   <span className="text-4xl font-bold tracking-tight text-primary-strong">
                     {s.space}
