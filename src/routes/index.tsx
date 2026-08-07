@@ -170,7 +170,6 @@ function Index() {
               {saving ? <Loader2 className="size-4 animate-spin" /> : "Yes, confirm"}
             </AlertDialogAction>
           </AlertDialogFooter>
-        </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </main>
