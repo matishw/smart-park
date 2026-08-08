@@ -4,6 +4,11 @@ import type { Database } from "@/integrations/supabase/types";
 
 export const ALL_SPACES = [126, 127, 155, 212, 217, 239] as const;
 
+async function getAdmin() {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  return supabaseAdmin;
+}
+
 function getClient() {
   const key = process.env["SUPABASE_PUBLISHABLE_KEY"]!;
   return createClient<Database>(process.env["SUPABASE_URL"]!, key, {
@@ -47,7 +52,7 @@ export const Route = createFileRoute("/api/parking")({
   server: {
     handlers: {
       GET: async ({ request }) => {
-        const supabase = getClient();
+        const supabase = await getAdmin();
         const { data, error } = await supabase
           .from("parking_reservations")
           .select("space, name, owner_key");
@@ -83,7 +88,7 @@ export const Route = createFileRoute("/api/parking")({
           return json({ success: false, message: "Invalid parking space." }, 400);
         }
 
-        const supabase = getClient();
+        const supabase = await getAdmin();
 
         const { data: existing } = await supabase
           .from("parking_reservations")
@@ -125,7 +130,7 @@ export const Route = createFileRoute("/api/parking")({
         const user = await getUser(request);
         if (!user) return json({ success: false, message: "Please sign in with Google." }, 401);
 
-        const supabase = getClient();
+        const supabase = await getAdmin();
         const { data, error } = await supabase
           .from("parking_reservations")
           .delete()
