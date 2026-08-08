@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, RefreshCw, CircleParking } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Loader2, RefreshCw, CircleParking, LogOut } from "lucide-react";
 import { toast } from "sonner";
+import type { Session } from "@supabase/supabase-js";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,8 +14,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable/index";
 
 type Space = {
   space: number;
@@ -22,18 +23,6 @@ type Space = {
   name: string | null;
   mine: boolean;
 };
-
-const NAME_KEY = "parking:name";
-const OWNER_KEY = "parking:ownerKey";
-
-function getOwnerKey() {
-  let key = localStorage.getItem(OWNER_KEY);
-  if (!key) {
-    key = crypto.randomUUID();
-    localStorage.setItem(OWNER_KEY, key);
-  }
-  return key;
-}
 
 const TOTAL = 6;
 
@@ -44,7 +33,7 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Register the parking space you parked in. See live availability of all six spaces, reset daily at 20:00.",
+          "Sign in with Google and register the parking space you parked in. Live availability of all six spaces, reset daily at 20:00.",
       },
       { property: "og:title", content: "Parking Registration — Claim Your Space" },
       {
@@ -59,39 +48,76 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
+  const [session, setSession] = useState<Session | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [signingIn, setSigningIn] = useState(false);
   const [spaces, setSpaces] = useState<Space[] | null>(null);
-  const [name, setName] = useState("");
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [releasing, setReleasing] = useState<number | null>(null);
-  const ownerKey = useRef("");
-
-  const load = useCallback(async (showSpinner = false) => {
-    if (showSpinner) setLoading(true);
-    try {
-      const res = await fetch(`/api/parking?owner=${encodeURIComponent(ownerKey.current)}`, {
-        headers: { Accept: "application/json" },
-      });
-      const data = (await res.json()) as { spaces?: Space[] };
-      setSpaces(data.spaces ?? []);
-    } catch {
-      toast.error("Could not load parking spaces.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
 
   useEffect(() => {
-    ownerKey.current = getOwnerKey();
-    setName(localStorage.getItem(NAME_KEY) ?? "");
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+      setSession(s);
+      setAuthReady(true);
+    });
+    void supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setAuthReady(true);
+    });
+    return () => sub.subscription.unsubscribe();
   }, []);
 
+  const authHeaders = useCallback(async (): Promise<Record<string, string>> => {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }, []);
+
+  const load = useCallback(
+    async (showSpinner = false) => {
+      if (showSpinner) setLoading(true);
+      try {
+        const res = await fetch("/api/parking", {
+          headers: { Accept: "application/json", ...(await authHeaders()) },
+        });
+        const data = (await res.json()) as { spaces?: Space[] };
+        setSpaces(data.spaces ?? []);
+      } catch {
+        toast.error("Could not load parking spaces.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [authHeaders],
+  );
+
   useEffect(() => {
+    if (!authReady || !session) return;
     void load(true);
     const id = setInterval(() => void load(), 10000);
     return () => clearInterval(id);
-  }, [load]);
+  }, [load, authReady, session]);
+
+  const signIn = async () => {
+    setSigningIn(true);
+    const result = await lovable.auth.signInWithOAuth("google", {
+      redirect_uri: window.location.origin,
+    });
+    if (result.error) {
+      setSigningIn(false);
+      toast.error("Could not sign in with Google.");
+      return;
+    }
+    if (result.redirected) return;
+    setSigningIn(false);
+  };
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    setSpaces(null);
+  };
 
   const confirm = async () => {
     if (pending == null) return;
@@ -99,12 +125,11 @@ function Index() {
     try {
       const res = await fetch("/api/parking", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ space: pending, name: name.trim(), ownerKey: ownerKey.current }),
+        headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+        body: JSON.stringify({ space: pending }),
       });
       const data = (await res.json()) as { success: boolean; message?: string };
       if (data.success) {
-        localStorage.setItem(NAME_KEY, name.trim());
         toast.success("Parking space successfully registered.", {
           description: `Space ${pending} is now yours for today.`,
         });
@@ -127,8 +152,7 @@ function Index() {
     try {
       const res = await fetch("/api/parking", {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ownerKey: ownerKey.current }),
+        headers: { "Content-Type": "application/json", ...(await authHeaders()) },
       });
       const data = (await res.json()) as { success: boolean; message?: string };
       if (data.success) {
@@ -147,6 +171,45 @@ function Index() {
   };
 
   const mySpace = spaces?.find((s) => s.mine)?.space ?? null;
+  const meta = (session?.user.user_metadata ?? {}) as Record<string, unknown>;
+  const displayName =
+    (typeof meta["full_name"] === "string" && meta["full_name"]) ||
+    (typeof meta["name"] === "string" && meta["name"]) ||
+    session?.user.email ||
+    "";
+
+  if (!authReady) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="size-8 animate-spin text-primary" />
+      </main>
+    );
+  }
+
+  if (!session) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background px-5">
+        <div className="w-full max-w-sm text-center">
+          <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-primary-soft text-primary-strong">
+            <CircleParking className="size-8" />
+          </div>
+          <h1 className="mt-5 text-3xl font-bold tracking-tight text-foreground">
+            Parking Registration
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Sign in with Google to register or release your parking space.
+          </p>
+          <Button
+            onClick={() => void signIn()}
+            disabled={signingIn}
+            className="mt-8 h-12 w-full rounded-xl text-base"
+          >
+            {signingIn ? <Loader2 className="size-5 animate-spin" /> : "Continue with Google"}
+          </Button>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-background px-5 py-10">
@@ -163,24 +226,20 @@ function Index() {
           </p>
         </header>
 
-        <div className="mt-6 space-y-2">
-          <Label htmlFor="name" className="text-sm font-medium text-foreground">
-            Your name
-          </Label>
-          <Input
-            id="name"
-            value={name}
-            onChange={(e) => {
-              setName(e.target.value);
-              localStorage.setItem(NAME_KEY, e.target.value);
-            }}
-            placeholder="e.g. Dana Levi"
-            maxLength={40}
-            className="h-12 rounded-xl text-base"
-          />
+        <div className="mt-6 flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3">
+          <span className="truncate text-sm font-medium text-foreground">{displayName}</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => void signOut()}
+            className="gap-2 text-muted-foreground"
+          >
+            <LogOut className="size-4" />
+            Sign out
+          </Button>
         </div>
 
-        <div className="mt-5 flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3">
+        <div className="mt-3 flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3">
           <span className="text-sm font-medium text-muted-foreground">
             Available:{" "}
             <span className="text-base font-bold text-primary-strong">
@@ -244,10 +303,6 @@ function Index() {
                       toast.error(`You already registered space ${mySpace}.`, {
                         description: "Tap your space to release it first.",
                       });
-                      return;
-                    }
-                    if (!name.trim()) {
-                      toast.error("Please enter your name first.");
                       return;
                     }
                     setPending(s.space);
