@@ -52,6 +52,8 @@ function Index() {
   const [authReady, setAuthReady] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
   const [spaces, setSpaces] = useState<Space[] | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
@@ -82,8 +84,9 @@ function Index() {
         const res = await fetch("/api/parking", {
           headers: { Accept: "application/json", ...(await authHeaders()) },
         });
-        const data = (await res.json()) as { spaces?: Space[] };
+        const data = (await res.json()) as { spaces?: Space[]; isAdmin?: boolean };
         setSpaces(data.spaces ?? []);
+        setIsAdmin(!!data.isAdmin);
       } catch {
         toast.error("Could not load parking spaces.");
       } finally {
