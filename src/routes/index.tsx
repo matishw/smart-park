@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, RefreshCw, CircleParking, LogOut } from "lucide-react";
+import { Loader2, RefreshCw, CircleParking, LogOut, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import type { Session } from "@supabase/supabase-js";
 import {
@@ -52,6 +52,8 @@ function Index() {
   const [authReady, setAuthReady] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
   const [spaces, setSpaces] = useState<Space[] | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
@@ -82,8 +84,9 @@ function Index() {
         const res = await fetch("/api/parking", {
           headers: { Accept: "application/json", ...(await authHeaders()) },
         });
-        const data = (await res.json()) as { spaces?: Space[] };
+        const data = (await res.json()) as { spaces?: Space[]; isAdmin?: boolean };
         setSpaces(data.spaces ?? []);
+        setIsAdmin(!!data.isAdmin);
       } catch {
         toast.error("Could not load parking spaces.");
       } finally {
@@ -166,6 +169,27 @@ function Index() {
       toast.error("Something went wrong. Please try again.");
     } finally {
       setReleasing(null);
+      void load();
+    }
+  };
+
+  const resetAll = async () => {
+    setResetting(true);
+    try {
+      const res = await fetch("/api/parking?all=1", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+      });
+      const data = (await res.json()) as { success: boolean; message?: string };
+      if (data.success) {
+        toast.success("All parking spaces are available again.");
+      } else {
+        toast.error(data.message ?? "Could not reset parking spaces.");
+      }
+    } catch {
+      toast.error("Something went wrong. Please try again.");
+    } finally {
+      setResetting(false);
       void load();
     }
   };
@@ -256,6 +280,24 @@ function Index() {
             Refresh
           </Button>
         </div>
+
+        {isAdmin && (
+          <Button
+            variant="outline"
+            onClick={() => void resetAll()}
+            disabled={resetting}
+            className="mt-3 h-11 w-full gap-2 rounded-xl"
+          >
+            {resetting ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <>
+                <RotateCcw className="size-4" />
+                Reset all spaces
+              </>
+            )}
+          </Button>
+        )}
 
         {loading ? (
           <div className="flex flex-col items-center gap-3 py-20 text-muted-foreground">
