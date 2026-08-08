@@ -173,6 +173,27 @@ function Index() {
     }
   };
 
+  const resetAll = async () => {
+    setResetting(true);
+    try {
+      const res = await fetch("/api/parking?all=1", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+      });
+      const data = (await res.json()) as { success: boolean; message?: string };
+      if (data.success) {
+        toast.success("All parking spaces are available again.");
+      } else {
+        toast.error(data.message ?? "Could not reset parking spaces.");
+      }
+    } catch {
+      toast.error("Something went wrong. Please try again.");
+    } finally {
+      setResetting(false);
+      void load();
+    }
+  };
+
   const mySpace = spaces?.find((s) => s.mine)?.space ?? null;
   const meta = (session?.user.user_metadata ?? {}) as Record<string, unknown>;
   const displayName =
