@@ -27,14 +27,33 @@ const json = (body: unknown, status = 200) =>
     headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
   });
 
+type AuthUser = { id: string; name: string };
+
+async function getUser(request: Request): Promise<AuthUser | null> {
+  const token = request.headers.get("Authorization")?.replace(/^Bearer\s+/i, "");
+  if (!token) return null;
+  const { data, error } = await getClient().auth.getUser(token);
+  if (error || !data.user) return null;
+  const meta = (data.user.user_metadata ?? {}) as Record<string, unknown>;
+  const name =
+    (typeof meta["full_name"] === "string" && meta["full_name"]) ||
+    (typeof meta["name"] === "string" && meta["name"]) ||
+    data.user.email ||
+    "Unknown";
+  return { id: data.user.id, name: String(name).slice(0, 40) };
+}
+
 export const Route = createFileRoute("/api/parking")({
   server: {
     handlers: {
       GET: async ({ request }) => {
         const supabase = getClient();
-        const { data, error } = await supabase.from("parking_reservations").select("space, name, owner_key");
+        const { data, error } = await supabase
+          .from("parking_reservations")
+          .select("space, name, owner_key");
         if (error) return json({ error: error.message }, 500);
-        const ownerKey = new URL(request.url).searchParams.get("owner") ?? "";
+        const user = await getUser(request);
+        const ownerKey = user?.id ?? "";
         const rows = data ?? [];
         const occupied = new Map(rows.map((r) => [r.space, r]));
         const mine = ownerKey ? rows.find((r) => r.owner_key === ownerKey) : undefined;
@@ -50,6 +69,9 @@ export const Route = createFileRoute("/api/parking")({
         });
       },
       POST: async ({ request }) => {
+        const user = await getUser(request);
+        if (!user) return json({ success: false, message: "Please sign in with Google." }, 401);
+
         let body: unknown;
         try {
           body = await request.json();
@@ -61,22 +83,12 @@ export const Route = createFileRoute("/api/parking")({
           return json({ success: false, message: "Invalid parking space." }, 400);
         }
 
-        const name = String((body as { name?: unknown })?.name ?? "").trim().slice(0, 40);
-        if (!name) {
-          return json({ success: false, message: "Name is required." }, 400);
-        }
-
-        const ownerKey = String((body as { ownerKey?: unknown })?.ownerKey ?? "").trim();
-        if (!ownerKey) {
-          return json({ success: false, message: "Missing owner key." }, 400);
-        }
-
         const supabase = getClient();
 
         const { data: existing } = await supabase
           .from("parking_reservations")
           .select("space")
-          .eq("owner_key", ownerKey)
+          .eq("owner_key", user.id)
           .maybeSingle();
         if (existing) {
           return json(
@@ -90,7 +102,9 @@ export const Route = createFileRoute("/api/parking")({
 
         // The unique constraint on `space` makes this atomic: only the first
         // concurrent insert succeeds, the rest fail with code 23505.
-        const { error } = await supabase.from("parking_reservations").insert({ space, name, owner_key: ownerKey });
+        const { error } = await supabase
+          .from("parking_reservations")
+          .insert({ space, name: user.name, owner_key: user.id });
         if (error) {
           if (error.code === "23505") {
             return json(
@@ -108,22 +122,14 @@ export const Route = createFileRoute("/api/parking")({
         return json({ success: true });
       },
       DELETE: async ({ request }) => {
-        let body: unknown;
-        try {
-          body = await request.json();
-        } catch {
-          return json({ success: false, message: "Invalid request body." }, 400);
-        }
-        const ownerKey = String((body as { ownerKey?: unknown })?.ownerKey ?? "").trim();
-        if (!ownerKey) {
-          return json({ success: false, message: "Missing owner key." }, 400);
-        }
+        const user = await getUser(request);
+        if (!user) return json({ success: false, message: "Please sign in with Google." }, 401);
 
         const supabase = getClient();
         const { data, error } = await supabase
           .from("parking_reservations")
           .delete()
-          .eq("owner_key", ownerKey)
+          .eq("owner_key", user.id)
           .select("space");
         if (error) return json({ success: false, message: error.message }, 500);
         if (!data || data.length === 0) {
