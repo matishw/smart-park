@@ -71,6 +71,7 @@ export const Route = createFileRoute("/api/parking")({
         return json({
           available: ALL_SPACES.filter((s) => !occupied.has(s)),
           mySpace: mine?.space ?? null,
+          isAdmin: !!user && ADMIN_EMAILS.includes(user.email),
           spaces: ALL_SPACES.map((s) => ({
             space: s,
             occupied: occupied.has(s),
@@ -137,6 +138,21 @@ export const Route = createFileRoute("/api/parking")({
         if (!user) return json({ success: false, message: "Please sign in with Google." }, 401);
 
         const supabase = await getAdmin();
+
+        const url = new URL(request.url);
+        if (url.searchParams.get("all") === "1") {
+          if (!ADMIN_EMAILS.includes(user.email)) {
+            return json({ success: false, message: "Not allowed." }, 403);
+          }
+          const { error: resetError } = await supabase
+            .from("parking_reservations")
+            .delete()
+            .not("id", "is", null);
+          if (resetError) return json({ success: false, message: resetError.message }, 500);
+          return json({ success: true, reset: true });
+        }
+
+
         const { data, error } = await supabase
           .from("parking_reservations")
           .delete()
