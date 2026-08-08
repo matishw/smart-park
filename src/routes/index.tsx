@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, RefreshCw, CircleParking, LogOut } from "lucide-react";
+import { Loader2, RefreshCw, CircleParking, LogOut, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import type { Session } from "@supabase/supabase-js";
 import {
@@ -280,6 +280,24 @@ function Index() {
             Refresh
           </Button>
         </div>
+
+        {isAdmin && (
+          <Button
+            variant="outline"
+            onClick={() => void resetAll()}
+            disabled={resetting}
+            className="mt-3 h-11 w-full gap-2 rounded-xl"
+          >
+            {resetting ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <>
+                <RotateCcw className="size-4" />
+                Reset all spaces
+              </>
+            )}
+          </Button>
+        )}
 
         {loading ? (
           <div className="flex flex-col items-center gap-3 py-20 text-muted-foreground">
