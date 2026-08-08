@@ -32,7 +32,9 @@ const json = (body: unknown, status = 200) =>
     headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
   });
 
-type AuthUser = { id: string; name: string };
+type AuthUser = { id: string; name: string; email: string };
+
+const ADMIN_EMAILS = ["matishw@gmail.com"];
 
 async function getUser(request: Request): Promise<AuthUser | null> {
   const token = request.headers.get("Authorization")?.replace(/^Bearer\s+/i, "");
@@ -45,7 +47,11 @@ async function getUser(request: Request): Promise<AuthUser | null> {
     (typeof meta["name"] === "string" && meta["name"]) ||
     data.user.email ||
     "Unknown";
-  return { id: data.user.id, name: String(name).slice(0, 40) };
+  return {
+    id: data.user.id,
+    name: String(name).slice(0, 40),
+    email: (data.user.email ?? "").toLowerCase(),
+  };
 }
 
 export const Route = createFileRoute("/api/parking")({
