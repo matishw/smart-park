@@ -116,6 +116,30 @@ function Index() {
     return () => clearInterval(id);
   }, [load, authReady, session]);
 
+  // Realtime: any client that claims/releases/resets broadcasts, everyone refreshes instantly.
+  useEffect(() => {
+    if (!authReady || !session) return;
+    const channel = supabase
+      .channel("parking-updates")
+      .on("broadcast", { event: "changed" }, () => void load())
+      .subscribe();
+    channelRef.current = channel;
+    return () => {
+      channelRef.current = null;
+      void supabase.removeChannel(channel);
+    };
+  }, [load, authReady, session]);
+
+  const broadcastChange = useCallback(() => {
+    void channelRef.current?.send({
+      type: "broadcast",
+      event: "changed",
+      payload: { at: Date.now() },
+    });
+  }, []);
+
+
+
   const signIn = async () => {
     setSigningIn(true);
     const result = await lovable.auth.signInWithOAuth("google", {
