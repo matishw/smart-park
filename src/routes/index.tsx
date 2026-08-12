@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, RefreshCw, CircleParking, LogOut, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
-import type { Session } from "@supabase/supabase-js";
+import type { RealtimeChannel, Session } from "@supabase/supabase-js";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -71,6 +71,7 @@ function Index() {
   const [pending, setPending] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [releasing, setReleasing] = useState<number | null>(null);
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
@@ -183,6 +184,7 @@ function Index() {
     } finally {
       setSaving(false);
       setPending(null);
+      broadcastChange();
       void load();
     }
   };
@@ -206,6 +208,7 @@ function Index() {
       toast.error("Something went wrong. Please try again.");
     } finally {
       setReleasing(null);
+      broadcastChange();
       void load();
     }
   };
@@ -227,6 +230,7 @@ function Index() {
       toast.error("Something went wrong. Please try again.");
     } finally {
       setResetting(false);
+      broadcastChange();
       void load();
     }
   };
