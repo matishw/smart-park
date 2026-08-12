@@ -21,10 +21,23 @@ type Space = {
   space: number;
   occupied: boolean;
   name: string | null;
+  since: string | null;
   mine: boolean;
 };
 
 const TOTAL = 6;
+
+const formatSince = (iso: string | null) => {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleString(undefined, {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -324,6 +337,11 @@ function Index() {
                       "Yours · tap to release"
                     )}
                   </span>
+                  {formatSince(s.since) && (
+                    <span className="mt-0.5 text-xs font-medium text-primary-strong/70">
+                      {formatSince(s.since)}
+                    </span>
+                  )}
                 </button>
               ) : s.occupied ? (
                 <div
@@ -336,6 +354,11 @@ function Index() {
                   <span className="mt-1 max-w-[90%] truncate text-sm font-medium text-muted-foreground">
                     {s.name || "Occupied"}
                   </span>
+                  {formatSince(s.since) && (
+                    <span className="mt-0.5 text-xs text-muted-foreground/80">
+                      {formatSince(s.since)}
+                    </span>
+                  )}
                 </div>
               ) : (
                 <button

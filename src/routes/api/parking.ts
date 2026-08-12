@@ -61,7 +61,7 @@ export const Route = createFileRoute("/api/parking")({
         const supabase = await getAdmin();
         const { data, error } = await supabase
           .from("parking_reservations")
-          .select("space, name, owner_key");
+          .select("space, name, owner_key, created_at");
         if (error) return json({ error: error.message }, 500);
         const user = await getUser(request);
         const ownerKey = user?.id ?? "";
@@ -76,6 +76,7 @@ export const Route = createFileRoute("/api/parking")({
             space: s,
             occupied: occupied.has(s),
             name: occupied.get(s)?.name ?? null,
+            since: occupied.get(s)?.created_at ?? null,
             mine: !!ownerKey && occupied.get(s)?.owner_key === ownerKey,
           })),
         });
