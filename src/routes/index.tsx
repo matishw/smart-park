@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, RefreshCw, CircleParking, LogOut, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
-import type { Session } from "@supabase/supabase-js";
+import type { RealtimeChannel, Session } from "@supabase/supabase-js";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -71,6 +71,7 @@ function Index() {
   const [pending, setPending] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [releasing, setReleasing] = useState<number | null>(null);
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
@@ -116,6 +117,30 @@ function Index() {
     return () => clearInterval(id);
   }, [load, authReady, session]);
 
+  // Realtime: any client that claims/releases/resets broadcasts, everyone refreshes instantly.
+  useEffect(() => {
+    if (!authReady || !session) return;
+    const channel = supabase
+      .channel("parking-updates")
+      .on("broadcast", { event: "changed" }, () => void load())
+      .subscribe();
+    channelRef.current = channel;
+    return () => {
+      channelRef.current = null;
+      void supabase.removeChannel(channel);
+    };
+  }, [load, authReady, session]);
+
+  const broadcastChange = useCallback(() => {
+    void channelRef.current?.send({
+      type: "broadcast",
+      event: "changed",
+      payload: { at: Date.now() },
+    });
+  }, []);
+
+
+
   const signIn = async () => {
     setSigningIn(true);
     const result = await lovable.auth.signInWithOAuth("google", {
@@ -159,6 +184,7 @@ function Index() {
     } finally {
       setSaving(false);
       setPending(null);
+      broadcastChange();
       void load();
     }
   };
@@ -182,6 +208,7 @@ function Index() {
       toast.error("Something went wrong. Please try again.");
     } finally {
       setReleasing(null);
+      broadcastChange();
       void load();
     }
   };
@@ -203,6 +230,7 @@ function Index() {
       toast.error("Something went wrong. Please try again.");
     } finally {
       setResetting(false);
+      broadcastChange();
       void load();
     }
   };
