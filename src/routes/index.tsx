@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
+import ta9Icon from "@/assets/ta9.svg";
 
 type Space = {
   space: number;
@@ -255,8 +256,11 @@ function Index() {
     return (
       <main className="flex min-h-screen items-center justify-center bg-background px-5">
         <div className="w-full max-w-sm text-center">
-          <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-primary-soft text-primary-strong">
-            <CircleParking className="size-8" />
+          <div className="mx-auto flex items-center justify-center gap-3">
+            <div className="flex size-14 items-center justify-center rounded-2xl bg-primary-soft text-primary-strong">
+              <CircleParking className="size-8" />
+            </div>
+            <img src={ta9Icon} alt="TA9 logo" className="h-9 w-auto" />
           </div>
           <h1 className="mt-5 text-3xl font-bold tracking-tight text-foreground">
             Parking Registration
@@ -280,8 +284,11 @@ function Index() {
     <main className="min-h-screen bg-background px-5 py-10">
       <div className="mx-auto w-full max-w-md">
         <header className="text-center">
-          <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-primary-soft text-primary-strong">
-            <CircleParking className="size-8" />
+          <div className="mx-auto flex items-center justify-center gap-3">
+            <div className="flex size-14 items-center justify-center rounded-2xl bg-primary-soft text-primary-strong">
+              <CircleParking className="size-8" />
+            </div>
+            <img src={ta9Icon} alt="TA9 logo" className="h-9 w-auto" />
           </div>
           <h1 className="mt-5 text-3xl font-bold tracking-tight text-foreground">
             Available Parking Spaces
