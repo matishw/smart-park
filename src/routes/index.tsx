@@ -337,6 +337,11 @@ function Index() {
                       "Yours · tap to release"
                     )}
                   </span>
+                  {formatSince(s.since) && (
+                    <span className="mt-0.5 text-xs font-medium text-primary-strong/70">
+                      {formatSince(s.since)}
+                    </span>
+                  )}
                 </button>
               ) : s.occupied ? (
                 <div
@@ -349,6 +354,11 @@ function Index() {
                   <span className="mt-1 max-w-[90%] truncate text-sm font-medium text-muted-foreground">
                     {s.name || "Occupied"}
                   </span>
+                  {formatSince(s.since) && (
+                    <span className="mt-0.5 text-xs text-muted-foreground/80">
+                      {formatSince(s.since)}
+                    </span>
+                  )}
                 </div>
               ) : (
                 <button
