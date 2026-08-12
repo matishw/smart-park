@@ -21,10 +21,23 @@ type Space = {
   space: number;
   occupied: boolean;
   name: string | null;
+  since: string | null;
   mine: boolean;
 };
 
 const TOTAL = 6;
+
+const formatSince = (iso: string | null) => {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleString(undefined, {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
 
 export const Route = createFileRoute("/")({
   head: () => ({
