@@ -191,7 +191,14 @@ export const Route = createFileRoute("/api/parking")({
             .delete()
             .not("id", "is", null);
           if (resetError) return json({ success: false, message: resetError.message }, 500);
+          const { error: extraResetError } = await supabase
+            .from("parking_extra_spaces")
+            .delete()
+            .not("id", "is", null);
+          if (extraResetError)
+            return json({ success: false, message: extraResetError.message }, 500);
           return json({ success: true, reset: true });
+
         }
 
 
