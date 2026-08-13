@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, RefreshCw, CircleParking, LogOut, RotateCcw } from "lucide-react";
+import { Loader2, RefreshCw, CircleParking, LogOut, RotateCcw, Plus } from "lucide-react";
 import { toast } from "sonner";
 import type { RealtimeChannel, Session } from "@supabase/supabase-js";
 import {
