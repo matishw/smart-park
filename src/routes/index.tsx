@@ -219,7 +219,39 @@ function Index() {
     }
   };
 
+  const addSpace = async () => {
+    const space = Number(newSpace);
+    if (!Number.isInteger(space) || space < 1) {
+      toast.error("Enter a valid space number.");
+      return;
+    }
+    setAdding(true);
+    try {
+      const res = await fetch("/api/parking", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+        body: JSON.stringify({ action: "add", space }),
+      });
+      const data = (await res.json()) as { success: boolean; message?: string };
+      if (data.success) {
+        toast.success(`Space ${space} added.`, {
+          description: "It will be removed at the daily reset.",
+        });
+        setNewSpace("");
+      } else {
+        toast.error(data.message ?? "Could not add this space.");
+      }
+    } catch {
+      toast.error("Something went wrong. Please try again.");
+    } finally {
+      setAdding(false);
+      broadcastChange();
+      void load();
+    }
+  };
+
   const resetAll = async () => {
+
     setResetting(true);
     try {
       const res = await fetch("/api/parking?all=1", {
