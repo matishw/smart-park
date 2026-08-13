@@ -19,6 +19,8 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import ta9Icon from "@/assets/ta9.svg";
+import { InstallAppButton } from "@/components/InstallAppButton";
+
 
 type Space = {
   space: number;
@@ -312,7 +314,9 @@ function Index() {
           >
             {signingIn ? <Loader2 className="size-5 animate-spin" /> : "Continue with Google"}
           </Button>
+          <InstallAppButton className="mt-3 h-11 w-full gap-2 rounded-xl" />
         </div>
+
       </main>
     );
   }
@@ -334,6 +338,10 @@ function Index() {
             Tap the space where you parked. Resets every day at 20:00.
           </p>
         </header>
+
+        <InstallAppButton className="mt-6 h-11 w-full gap-2 rounded-xl" />
+
+
 
         <div className="mt-6 flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3">
           <span className="truncate text-sm font-medium text-foreground">{displayName}</span>
