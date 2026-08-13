@@ -330,22 +330,42 @@ function Index() {
         </div>
 
         {isAdmin && (
-          <Button
-            variant="outline"
-            onClick={() => void resetAll()}
-            disabled={resetting}
-            className="mt-3 h-11 w-full gap-2 rounded-xl"
-          >
-            {resetting ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <>
-                <RotateCcw className="size-4" />
-                Reset all spaces
-              </>
-            )}
-          </Button>
+          <div className="mt-3 space-y-3">
+            <div className="flex gap-2">
+              <Input
+                inputMode="numeric"
+                placeholder="New space number"
+                value={newSpace}
+                onChange={(e) => setNewSpace(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                className="h-11 rounded-xl"
+              />
+              <Button
+                onClick={() => void addSpace()}
+                disabled={adding || newSpace.trim() === ""}
+                className="h-11 gap-2 rounded-xl px-4"
+              >
+                {adding ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+                Add
+              </Button>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => void resetAll()}
+              disabled={resetting}
+              className="h-11 w-full gap-2 rounded-xl"
+            >
+              {resetting ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <>
+                  <RotateCcw className="size-4" />
+                  Reset all spaces
+                </>
+              )}
+            </Button>
+          </div>
         )}
+
 
         {loading ? (
           <div className="flex flex-col items-center gap-3 py-20 text-muted-foreground">
