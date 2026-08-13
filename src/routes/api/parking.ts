@@ -59,20 +59,25 @@ export const Route = createFileRoute("/api/parking")({
     handlers: {
       GET: async ({ request }) => {
         const supabase = await getAdmin();
-        const { data, error } = await supabase
-          .from("parking_reservations")
-          .select("space, name, owner_key, created_at");
+        const [{ data, error }, { data: extra, error: extraError }] = await Promise.all([
+          supabase.from("parking_reservations").select("space, name, owner_key, created_at"),
+          supabase.from("parking_extra_spaces").select("space").order("space"),
+        ]);
         if (error) return json({ error: error.message }, 500);
+        if (extraError) return json({ error: extraError.message }, 500);
+        const allSpaces = [
+          ...new Set([...ALL_SPACES, ...(extra ?? []).map((e) => e.space)]),
+        ].sort((a, b) => a - b);
         const user = await getUser(request);
         const ownerKey = user?.id ?? "";
         const rows = data ?? [];
         const occupied = new Map(rows.map((r) => [r.space, r]));
         const mine = ownerKey ? rows.find((r) => r.owner_key === ownerKey) : undefined;
         return json({
-          available: ALL_SPACES.filter((s) => !occupied.has(s)),
+          available: allSpaces.filter((s) => !occupied.has(s)),
           mySpace: mine?.space ?? null,
           isAdmin: !!user && ADMIN_EMAILS.includes(user.email),
-          spaces: ALL_SPACES.map((s) => ({
+          spaces: allSpaces.map((s) => ({
             space: s,
             occupied: occupied.has(s),
             name: occupied.get(s)?.name ?? null,
@@ -92,9 +97,45 @@ export const Route = createFileRoute("/api/parking")({
           return json({ success: false, message: "Invalid request body." }, 400);
         }
         const space = Number((body as { space?: unknown })?.space);
-        if (!Number.isInteger(space) || !ALL_SPACES.includes(space as (typeof ALL_SPACES)[number])) {
+        const isAddAction = (body as { action?: unknown })?.action === "add";
+
+        if (isAddAction) {
+          if (!ADMIN_EMAILS.includes(user.email)) {
+            return json({ success: false, message: "Not allowed." }, 403);
+          }
+          if (!Number.isInteger(space) || space < 1 || space > 9999) {
+            return json({ success: false, message: "Invalid parking space number." }, 400);
+          }
+          if (ALL_SPACES.includes(space as (typeof ALL_SPACES)[number])) {
+            return json({ success: false, message: "This space already exists." }, 409);
+          }
+          const supabaseAdd = await getAdmin();
+          const { error: addError } = await supabaseAdd
+            .from("parking_extra_spaces")
+            .insert({ space });
+          if (addError) {
+            return json(
+              {
+                success: false,
+                message:
+                  addError.code === "23505" ? "This space already exists." : addError.message,
+              },
+              addError.code === "23505" ? 409 : 500,
+            );
+          }
+          return json({ success: true, space });
+        }
+
+        const extraSpaces = await (await getAdmin())
+          .from("parking_extra_spaces")
+          .select("space");
+        const valid =
+          ALL_SPACES.includes(space as (typeof ALL_SPACES)[number]) ||
+          (extraSpaces.data ?? []).some((e) => e.space === space);
+        if (!Number.isInteger(space) || !valid) {
           return json({ success: false, message: "Invalid parking space." }, 400);
         }
+
 
         const supabase = await getAdmin();
 
@@ -150,7 +191,14 @@ export const Route = createFileRoute("/api/parking")({
             .delete()
             .not("id", "is", null);
           if (resetError) return json({ success: false, message: resetError.message }, 500);
+          const { error: extraResetError } = await supabase
+            .from("parking_extra_spaces")
+            .delete()
+            .not("id", "is", null);
+          if (extraResetError)
+            return json({ success: false, message: extraResetError.message }, 500);
           return json({ success: true, reset: true });
+
         }
 
 

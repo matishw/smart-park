@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      parking_extra_spaces: {
+        Row: {
+          created_at: string
+          id: string
+          space: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          space: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          space?: number
+        }
+        Relationships: []
+      }
       parking_reservations: {
         Row: {
           created_at: string
