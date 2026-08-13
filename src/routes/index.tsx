@@ -339,6 +339,10 @@ function Index() {
           </p>
         </header>
 
+        <InstallAppButton className="mt-6 h-11 w-full gap-2 rounded-xl" />
+
+
+
         <div className="mt-6 flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3">
           <span className="truncate text-sm font-medium text-foreground">{displayName}</span>
           <Button
