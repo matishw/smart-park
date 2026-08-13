@@ -70,6 +70,9 @@ function Index() {
   const [spaces, setSpaces] = useState<Space[] | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [newSpace, setNewSpace] = useState("");
+  const [adding, setAdding] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
