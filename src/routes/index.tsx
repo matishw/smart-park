@@ -312,7 +312,9 @@ function Index() {
           >
             {signingIn ? <Loader2 className="size-5 animate-spin" /> : "Continue with Google"}
           </Button>
+          <InstallAppButton className="mt-3 h-11 w-full gap-2 rounded-xl" />
         </div>
+
       </main>
     );
   }
