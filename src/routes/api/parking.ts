@@ -34,7 +34,7 @@ const json = (body: unknown, status = 200) =>
 
 type AuthUser = { id: string; name: string; email: string };
 
-const ADMIN_EMAILS = ["matishw@gmail.com"];
+const ADMIN_EMAILS = ["matishw@gmail.com", "wenatal@gmail.com"];
 
 async function getUser(request: Request): Promise<AuthUser | null> {
   const token = request.headers.get("Authorization")?.replace(/^Bearer\s+/i, "");
