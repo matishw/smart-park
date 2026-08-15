@@ -360,7 +360,7 @@ function Index() {
           <span className="text-sm font-medium text-muted-foreground">
             Available:{" "}
             <span className="text-base font-bold text-primary-strong">
-              {spaces ? spaces.filter((s) => !s.occupied).length : "—"} / {TOTAL}
+              {spaces ? spaces.filter((s) => !s.occupied).length : "—"} / {spaces?.length ?? TOTAL}
             </span>
           </span>
           <Button
