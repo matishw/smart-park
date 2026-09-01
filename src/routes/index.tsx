@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, RefreshCw, CircleParking, LogOut, RotateCcw, Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -314,6 +314,17 @@ function Index() {
           >
             {signingIn ? <Loader2 className="size-5 animate-spin" /> : "Continue with Google"}
           </Button>
+          <Link to="/login" className="mt-3 block">
+            <Button variant="outline" className="h-12 w-full rounded-xl text-base">
+              Sign in with username and password
+            </Button>
+          </Link>
+          <p className="mt-3 text-sm text-muted-foreground">
+            Don't have an account?{" "}
+            <Link to="/signup" className="font-semibold text-primary-strong underline">
+              Sign up
+            </Link>
+          </p>
           <InstallAppButton className="mt-3 h-11 w-full gap-2 rounded-xl" />
         </div>
 
